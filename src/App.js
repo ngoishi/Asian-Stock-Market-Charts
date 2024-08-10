@@ -32,6 +32,7 @@ const StockChart = ({ data, country }) => {
         borderColor: colors[countries.indexOf(country)],
         backgroundColor: colors[countries.indexOf(country)],
         fill: false,
+        tension: 0.1,
       },
     ],
   };
@@ -41,13 +42,14 @@ const StockChart = ({ data, country }) => {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        display: false, // This hides the legend
+        display: false,
       },
       title: {
         display: true,
         text: `${country} Stock Market`,
         font: {
           size: 16,
+          weight: 'bold',
         },
       },
     },
@@ -66,39 +68,46 @@ const StockChart = ({ data, country }) => {
 
 const App = () => {
   const [stockData, setStockData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
-     const API_KEY = 'AIzaSyC9OSYVdlZpA1yqfTvJ30uu_1HtUDBivlg';
-      const SPREADSHEET_ID = '1yax38Oae40Udp7x2eEX1vTAT6vVSBaLYaO3G4JnpevY';
-      const RANGE = 'Sheet1!A:G'; // Adjust this to match your sheet name and range
-
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${RANGE}?key=${API_KEY}`;
+      const sheetsId = process.env.REACT_APP_SHEETS_ID;
+      const apiKey = process.env.REACT_APP_API_KEY;
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetsId}/values/Sheet1?key=${apiKey}`;
 
       try {
         const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.values && data.values.length > 1) {
-          const [headers, ...rows] = data.values;
-
-          const formattedData = rows.map(row => {
-            const rowData = {};
-            headers.forEach((header, index) => {
-              rowData[header] = index === 0 ? row[index] : parseFloat(row[index]) || null;
-            });
-            return rowData;
-          });
-
-          setStockData(formattedData);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
+        const data = await response.json();
+        
+        const formattedData = data.values.slice(1).map(row => ({
+          Date: row[0],
+          JAPAN: parseFloat(row[1]) || null,
+          KOREA: parseFloat(row[2]) || null,
+          TAIWAN: parseFloat(row[3]) || null,
+          'HONG KONG': parseFloat(row[4]) || null,
+          SINGAPORE: parseFloat(row[5]) || null,
+          THAILAND: parseFloat(row[6]) || null,
+        }));
+
+        setStockData(formattedData);
+        setIsLoading(false);
       } catch (error) {
         console.error('Error fetching data:', error);
+        setError(error.message);
+        setIsLoading(false);
       }
     };
 
     fetchData();
   }, []);
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="app">
